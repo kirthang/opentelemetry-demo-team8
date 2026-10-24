@@ -59,10 +59,14 @@ class ActionBackend(ABC):
         self.refusals: List[Dict[str, Any]] = []
 
     def execute(self, approved: ApprovedAction, expected_action_id: Optional[str] = None) -> ActionResult:
-        return self._perform(self._admit(approved, ACTION_ROLE, expected_action_id), ACTION_ROLE)
+        action = self._admit(approved, ACTION_ROLE, expected_action_id)
+        self.decision = approved.decision
+        return self._perform(action, ACTION_ROLE)
 
     def rollback(self, approved: ApprovedAction, expected_action_id: Optional[str] = None) -> ActionResult:
-        return self._perform(self._admit(approved, ROLLBACK_ROLE, expected_action_id), ROLLBACK_ROLE)
+        action = self._admit(approved, ROLLBACK_ROLE, expected_action_id)
+        self.decision = approved.decision
+        return self._perform(action, ROLLBACK_ROLE)
 
     def _admit(self, approved: Any, role: str, expected_action_id: Optional[str]) -> RemediationAction:
         if not isinstance(approved, ApprovedAction):
@@ -117,7 +121,7 @@ class DryRunBackend(ActionBackend):
 
 
 class HttpActionBackend(ActionBackend):
-    """The organisers' Action API. Stays BLOCKED until its contract is published."""
+    """An Action API over HTTP: the local one in src/action_api, or the organisers' once its contract is known."""
 
     name = "action_api"
     dry_run = False
@@ -131,7 +135,27 @@ class HttpActionBackend(ActionBackend):
         self.catalog_path = settings.action_api_catalog_path
 
     def _perform(self, action: RemediationAction, role: str) -> ActionResult:
-        raise ActionAPINotConfiguredError(f"{BLOCKED_CONTRACT} (paths, auth and payloads are not defined)")
+        import urllib.error
+        import urllib.request
+
+        decision = getattr(self, "decision", None)
+        request = {"operation": role, "action_id": action.action_id, "action_type": action.action_type.value,
+                   "target_service": action.target_service, "parameters": action.parameters,
+                   "approval": {"approver": getattr(decision, "approver", ""),
+                                "decided_at": getattr(decision, "decided_at", ""),
+                                "channel": getattr(decision, "channel", "")}}
+        req = urllib.request.Request(self.endpoint.rstrip("/") + "/v1/actions", method="POST",
+                                     data=json.dumps(request, default=str).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                body = json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            body = json.loads(e.read() or b"{}")
+            raise RuntimeError(f"Action API {e.code}: {body.get('message', body)}") from e
+        return ActionResult(status=body.get("status", "EXECUTED"), action_id=action.action_id,
+                            action_type=action.action_type.value, target_service=action.target_service, role=role,
+                            dry_run=False, backend=self.name, message=body.get("message", ""), request=request)
 
 
 def get_backend(settings: Settings, dry_run: bool = True, audit: Optional[AuditFn] = None) -> ActionBackend:

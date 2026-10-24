@@ -116,8 +116,9 @@ class AgentLauncher:
     """Starts `python -m src.agent` for an alert, chat approval, dry run, one run at a time."""
 
     def __init__(self, root_dir: Path, log_dir: Path, approval_timeout: int, dry_run: bool = True,
-                 notify: Callable[[str], None] = lambda text: None) -> None:
-        self.root_dir, self.log_dir = root_dir, log_dir
+                 notify: Callable[[str], None] = lambda text: None,
+                 extra_env: Optional[Dict[str, str]] = None) -> None:
+        self.root_dir, self.log_dir, self.extra_env = root_dir, log_dir, extra_env or {}
         self.approval_timeout, self.dry_run, self.notify = approval_timeout, dry_run, notify
         self.proc: Optional[subprocess.Popen] = None
 
@@ -129,7 +130,7 @@ class AgentLauncher:
 
         self.log_dir.mkdir(parents=True, exist_ok=True)
         log_path = self.log_dir / f"auto-{datetime.now():%Y%m%d-%H%M%S}-{alert.service}.log"
-        env = {**os.environ, "APPROVAL_TIMEOUT_SECONDS": str(self.approval_timeout)}
+        env = {**os.environ, "APPROVAL_TIMEOUT_SECONDS": str(self.approval_timeout), **self.extra_env}
         cmd = [sys.executable, "-m", "src.agent", "--alert", alert.text, "--approve-via", "chat",
                "--dry-run" if self.dry_run else "--no-dry-run"]
         with open(log_path, "w", encoding="utf-8") as out:

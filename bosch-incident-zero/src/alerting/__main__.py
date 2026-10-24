@@ -40,14 +40,25 @@ def main() -> None:
     parser.add_argument("--max-runs-per-day", type=int, help="agent runs per UTC day (default 4: free LLM quota)")
     parser.add_argument("--approval-timeout", type=int, default=900, help="seconds a human has to decide")
     parser.add_argument("--no-hub", action="store_true", help="do not start the hub in this process")
+    parser.add_argument("--live", action="store_true",
+                        help="apply approved fixes through the local Action API and verify recovery (default: dry run)")
     args = parser.parse_args()
 
     settings = Settings()
     rules = rules_with(error_rate=args.error_rate, min_errors=args.min_errors, p95_ms=args.p95_ms,
                        consecutive=args.consecutive, max_runs_per_day=args.max_runs_per_day)
     prometheus = PrometheusClient(settings.prometheus_url)
+    live_env = {}
+    if args.live:
+        from ..action_api.server import start as start_action_api
+
+        api = start_action_api(settings.root_dir.parent, settings.root_dir / "audit_logs" / "action_api.jsonl")
+        log(f"action API at {api.url}" if api else "port 8798 is in use; assuming the action API runs there")
+        live_env = {"DRY_RUN_MODE": "false", "ACTION_API_ENDPOINT": "http://127.0.0.1:8798",
+                    "ACTION_API_CATALOG": "/v1/catalog"}
     launcher = AgentLauncher(settings.root_dir, settings.root_dir / "audit_logs" / "auto_runs",
-                             approval_timeout=args.approval_timeout, notify=mac_notify)
+                             approval_timeout=args.approval_timeout, notify=mac_notify,
+                             dry_run=not args.live, extra_env=live_env)
     watcher = AlertWatcher(lambda: prometheus.get_services_overview(rules.window_seconds),
                            launcher, launcher.running, rules=rules, log=log)
     if not args.no_hub:
