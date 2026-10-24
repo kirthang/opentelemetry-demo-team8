@@ -170,6 +170,21 @@ class GrafanaAlerts:
         if not r.ok:
             raise RuntimeError(f"notification policy: HTTP {r.status_code} {r.text[:200]}")
 
+    def missing(self, want_webhook: bool) -> List[str]:
+        """Parts of the setup that are gone, e.g. after Grafana re-applied its file-provisioned policy."""
+        gone = []
+        r = self._call("GET", f"/api/v1/provisioning/folder/{FOLDER_UID}/rule-groups/{RULE_GROUP}")
+        if r.status_code == 404 or (r.ok and len(r.json().get("rules") or []) < 2):
+            gone.append("alert rules")
+        elif not r.ok:
+            r.raise_for_status()
+        if want_webhook:
+            r = self._call("GET", "/api/v1/provisioning/policies")
+            r.raise_for_status()
+            if not any(x.get("receiver") == CONTACT_POINT for x in r.json().get("routes") or []):
+                gone.append("webhook route")
+        return gone
+
     def all_states(self) -> List[Dict[str, Any]]:
         r = self._call("GET", "/api/prometheus/grafana/api/v1/alerts")
         r.raise_for_status()

@@ -116,8 +116,11 @@ What it does:
    check also shows no recovery, the approved rollback runs. If the alert is still firing, *Investigate again* starts a new
    attempt, and the agent is told what was already tried.
 
-Options: `--p95-ms`, `--error-rate`, `--for`, `--poll`, `--max-runs-per-day`, `--port`, `--no-webhook`,
-`--no-browser`. Reports are written to `incident_output/<id>/` as usual.
+Every 3 minutes (`--resync`) it checks that its rules and webhook route are still in Grafana and re-installs
+whatever is missing. A Grafana restart re-applies the demo's provisioned notification policy and drops the route.
+
+Options: `--p95-ms`, `--error-rate`, `--for`, `--poll`, `--resync`, `--max-runs-per-day`, `--port`,
+`--no-webhook`, `--no-browser`. Reports are written to `incident_output/<id>/` as usual.
 
 ## How to watch a run
 

@@ -25,6 +25,21 @@ def log(text: str) -> None:
     print(f"{datetime.now():%H:%M:%S} [AUTOPILOT] {text}", flush=True)
 
 
+def resync(grafana: GrafanaAlerts, engine: Engine, thresholds: Thresholds, webhook: str | None) -> None:
+    """Re-install the rules or webhook route if Grafana lost them; a Grafana restart drops the route."""
+    try:
+        gone = grafana.missing(want_webhook=webhook is not None)
+    except Exception as e:
+        log(f"could not check the Grafana setup: {e}")
+        return
+    if not gone:
+        return
+    log(f"Grafana lost the {' and '.join(gone)}; re-installing")
+    engine.setup = grafana.ensure_setup(thresholds, webhook)
+    for err in engine.setup.get("errors") or []:
+        log(err)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8790, help="UI port (default 8790)")
@@ -36,6 +51,8 @@ def main() -> None:
     parser.add_argument("--max-runs-per-day", type=int, default=4, help="investigations per UTC day (LLM quota)")
     parser.add_argument("--no-webhook", action="store_true", help="poll Grafana only; do not add a contact point")
     parser.add_argument("--no-browser", action="store_true", help="do not open the UI in a browser")
+    parser.add_argument("--resync", type=float, default=180,
+                        help="seconds between checks that the Grafana rules and webhook route are still installed")
     args = parser.parse_args()
 
     settings = Settings()
@@ -73,9 +90,13 @@ def main() -> None:
         log(err)
     if not args.no_browser:
         threading.Thread(target=webbrowser.open, args=(server.url,), daemon=True).start()
+    last_sync = time.time()
     try:
         while True:
             engine.poll()
+            if time.time() - last_sync >= args.resync:
+                last_sync = time.time()
+                resync(grafana, engine, thresholds, webhook)
             time.sleep(args.poll)
     except KeyboardInterrupt:
         log("stopped")
