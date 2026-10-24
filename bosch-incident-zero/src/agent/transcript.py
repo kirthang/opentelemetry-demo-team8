@@ -23,6 +23,7 @@ class EvidenceIndex:
     # (caller, dependency) pairs where a failing client call never reached the dependency
     unreached: Set[Tuple[str, str]] = field(default_factory=set)
 
+
     def all_text(self) -> str:
         return "\n".join(self.logs.values())
 
@@ -44,7 +45,24 @@ class Transcript:
     report_schema_valid: Optional[bool] = None
     report_schema_errors: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
+    token_usage: Dict[str, int] = field(default_factory=lambda: {
+        "requests": 0, "requests_without_usage": 0,
+        "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})
+    models_used: List[str] = field(default_factory=list)
     finished_at: Optional[str] = None
+
+    def record_model(self, model: str) -> None:
+        if model and model not in self.models_used:
+            self.models_used.append(model)
+
+    def record_usage(self, usage: Optional[Dict[str, int]]) -> None:
+        """Add one model response's token counts; a response without usage is counted, not guessed."""
+        self.token_usage["requests"] += 1
+        if usage is None:
+            self.token_usage["requests_without_usage"] += 1
+            return
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            self.token_usage[key] += int(usage.get(key) or 0)
 
     def record_tool(self, name: str, arguments: Dict[str, Any], result: Dict[str, Any]) -> None:
         self.tool_calls.append({"n": len(self.tool_calls) + 1, "at": utc_now(), "tool": name,
@@ -59,6 +77,7 @@ class Transcript:
                 if kind == "trace":
                     if ev.get("reached") is False and ev.get("caller") and ev.get("dependency"):
                         idx.unreached.add((ev["caller"], ev["dependency"]))
+
                     if ref.startswith("span:"):
                         idx.span_refs.add(ref.lower())
                         idx.trace_ids.add(ref.split(":")[1].lower())

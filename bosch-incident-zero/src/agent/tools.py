@@ -670,6 +670,7 @@ def _dependency_failure(span: Optional[Dict[str, Any]], spans: List[Dict[str, An
             "span_id": span["span_id"]}
 
 
+
 def _window_params(ctx: ToolContext, minutes: int) -> Tuple[datetime, datetime]:
     end = ctx.now()
     return end - timedelta(minutes=minutes), end
@@ -744,6 +745,7 @@ def search_traces(ctx: ToolContext, service: str, errors_only: bool = True,
             evidence.append({"ref": f"span:{r['trace_id']}:{dep['span_id']}", "kind": "trace",
                              "service": dep["caller"], "caller": dep["caller"],
                              "dependency": dep["dependency"], "reached": dep["reached"]})
+
     if not rows:
         what = "error traces" if errors_only else "traces"
         return _result(tool, NO_DATA, f"No {what} for '{service}' in the last {m}m "
@@ -757,6 +759,7 @@ def search_traces(ctx: ToolContext, service: str, errors_only: bool = True,
                             for r in rows if r.get("dependency_failure") and not r["dependency_failure"]["reached"]})
         for caller, dep_svc in unreached:
             summary += f"; {caller}'s calls to {dep_svc} never reached {dep_svc}"
+
     return _result(tool, OK, summary, {"window": f"{m}m", "traces_scanned": len(traces), "traces": rows},
                    evidence)
 
@@ -822,6 +825,7 @@ def get_trace(ctx: ToolContext, trace_id: str) -> Dict[str, Any]:
                f"{deepest['service']}: {deepest['name']}" + (
                    f" (call from {dep['caller']} never reached {dep['dependency']})"
                    if dep and not dep["reached"] else "") if deepest
+
                else f"{len(spans)} spans, no failing spans; slowest self-time "
                     f"{slowest[0]['service']}: {slowest[0]['name']} ({slowest[0]['self_ms']} ms)")
     return _result(tool, OK, summary, data, evidence)
@@ -856,6 +860,7 @@ def search_logs(ctx: ToolContext, service: Optional[str] = None, level: str = "e
         filters.append({"match_phrase": {"body": str(text)[:200]}})
     dsl = {
         "size": limit,
+        "track_total_hits": True,
         "sort": [{"observedTimestamp": {"order": "desc"}}],
         "_source": ["observedTimestamp", "severity.text", "body", "traceId", "resource.service.name"],
         "query": {"bool": {"filter": filters,
@@ -882,7 +887,7 @@ def search_logs(ctx: ToolContext, service: Optional[str] = None, level: str = "e
             (src.get("resource", {}).get("service") or {}).get("name") if isinstance(
                 src.get("resource", {}).get("service"), dict) else None)
         ref = f"log:{h.get('_id')}"
-        line = {"ref": ref, "ts": src.get("observedTimestamp"), "service": svc,
+        line = {"ref": ref, "index": h.get("_index"), "ts": src.get("observedTimestamp"), "service": svc,
                 "severity": sev.get("text") if isinstance(sev, dict) else sev,
                 "body": body[:300], "trace_id": src.get("traceId") or None}
         lines.append(line)
@@ -895,7 +900,9 @@ def search_logs(ctx: ToolContext, service: Optional[str] = None, level: str = "e
     scope = f"{level} logs" + (f" for {service}" if service else "") + (f" matching '{text}'" if text else "")
     if not lines:
         return _result(tool, NO_DATA, f"No {scope} in the last {m}m.", {"total_matches": total or 0})
-    return _result(tool, OK, f"{total} {scope} in the last {m}m; showing {len(lines)} newest.",
+    newest = lines[0]
+    return _result(tool, OK, f"{total} {scope} in the last {m}m; showing {len(lines)} newest. Newest: "
+                             f"{newest['ts']} {newest['service']}: {newest['body'][:80]}",
                    {"window": f"{m}m", "total_matches": total, "matches_by_service": by_service,
                     "lines": lines}, evidence)
 
