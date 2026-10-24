@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import io
 import re
 from pathlib import Path
 
@@ -339,7 +340,7 @@ def test_cli_rejects_auto_approve_options(flag, monkeypatch):
 
 def test_without_a_callback_the_real_prompt_rejects_when_there_is_no_tty(settings, monkeypatch):
     FakeTelemetry(monkeypatch, "NOT_RECOVERED")
-    monkeypatch.setattr("sys.stdin", open("/dev/null"))
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
     inv = ScriptedInvestigator(settings, THROTTLE, RESTART_CART)
     out = run(settings, inv, None)
     assert out.final_status == pipeline.REJECTED and len(out.attempts) == 1 and len(inv.calls) == 1

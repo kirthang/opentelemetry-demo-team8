@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import io
 from pathlib import Path
 
 import pytest
@@ -74,7 +75,7 @@ def test_cli_quiet_runs_end_to_end_and_still_writes_logs(env, monkeypatch, capsy
 
 def test_cli_rejects_without_a_terminal(env, monkeypatch, capsys):
     _patch_cli(monkeypatch, SPIKE)
-    monkeypatch.setattr("sys.stdin", open("/dev/null"))
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
     assert cli.main(["--alert", "payment flood", "--incident-id", "INC-REJ"]) == 0
     assert "Pipeline outcome: REJECTED" in capsys.readouterr().out
 
@@ -168,4 +169,3 @@ def test_presenter_formats_clean_brief():
     assert "RESTART_SERVICE" in brief
     assert "APPROVED" in brief
     assert "VERIFIED" in brief
-

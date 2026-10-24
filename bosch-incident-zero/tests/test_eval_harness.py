@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
@@ -212,9 +213,11 @@ def test_faultctl_failure_is_error_infra_and_agent_not_run(tmp_path):
     assert row["outcome"] == "ERROR_INFRA" and "no such incident" in row["detail"] and not ran
 
 
-def test_faultctl_runner_reports_nonzero_exit():
+def test_faultctl_runner_reports_nonzero_exit(tmp_path):
+    script = tmp_path / "faultctl_failure.py"
+    script.write_text("import sys\nprint('nope', file=sys.stderr)\nsys.exit(3)\n", encoding="utf-8")
     with pytest.raises(eh.FaultctlError, match="exited 3"):
-        eh.faultctl_runner("sh -c 'echo nope >&2; exit 3'")(["inject", "x"])
+        eh.faultctl_runner(f'"{sys.executable}" "{script}"')(["inject", "x"])
 
 
 # ---------------------------------------------------------------- outputs and CLI guards

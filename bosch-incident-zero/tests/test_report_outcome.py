@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from src.agent.presenter import format_incident_brief
 from src.agent.report import attach_action_outcome, build_report, render_report_markdown, validate_report
 from src.agent.transcript import Transcript
@@ -185,7 +187,8 @@ def test_write_report_files_emits_event_and_scrubs_secrets(tmp_path):
     for p in paths.values():
         text = open(p).read()
         assert "sk-or-v1-abcdefghijklmnop" not in text
-    assert paths["json"].endswith("INC-OUT-1/report.json") and paths["md"].endswith("report.md")
+    assert Path(paths["json"]) == tmp_path / "INC-OUT-1" / "report.json"
+    assert Path(paths["md"]) == tmp_path / "INC-OUT-1" / "report.md"
     assert [r["event"] for r in log.records] == ["REPORT_WRITTEN"]
     assert log.records[0]["data"] == paths
 

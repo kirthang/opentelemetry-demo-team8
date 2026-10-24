@@ -9,9 +9,11 @@ import getpass
 import hashlib
 import io
 import json
+import queue
 import secrets
 import select
 import sys
+import threading
 import time
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
@@ -244,6 +246,23 @@ def _readline(stream: TextIO, timeout: float) -> str:
         fd = stream.fileno()
     except (AttributeError, OSError, ValueError, io.UnsupportedOperation):
         return stream.readline()
+    if sys.platform == "win32":
+        result: queue.Queue[Any] = queue.Queue(maxsize=1)
+
+        def read() -> None:
+            try:
+                result.put((stream.readline(), None))
+            except Exception as e:
+                result.put((None, e))
+
+        threading.Thread(target=read, daemon=True).start()
+        try:
+            line, error = result.get(timeout=timeout)
+        except queue.Empty:
+            raise TimeoutError from None
+        if error is not None:
+            raise error
+        return line
     ready, _, _ = select.select([fd], [], [], timeout)
     if not ready:
         raise TimeoutError

@@ -411,7 +411,7 @@ def test_callee_mapping_covers_grpc_db_and_messaging():
     assert _callee_of({"name": "HGET", "attributes": {"db.system": "redis"}}) == "valkey-cart"
     assert _callee_of({"name": "SELECT", "attributes": {"db.system": "postgresql"}}) == "astronomy-db"
     assert _callee_of({"name": "orders publish", "attributes": {"messaging.system": "kafka"}}) == "kafka"
-    assert _callee_of({"name": "GET", "attributes": {"server.address": "quote:8090"}}) == "quote'
+    assert _callee_of({"name": "GET", "attributes": {"server.address": "quote:8090"}}) == "quote"
     assert _callee_of({"name": "internal work", "attributes": {}}) is None
 
 
@@ -658,7 +658,7 @@ def test_review_never_raises_confidence_or_clears_an_escalation():
 
 
 def test_openrouter_out_of_credit_402_escalates_without_a_diagnosis():
-    import httpx2
+    import httpx
     import openai
 
     from src.events import EventLog
@@ -670,8 +670,8 @@ def test_openrouter_out_of_credit_402_escalates_without_a_diagnosis():
 
     def create(**kw):
         calls.append(kw)
-        request = httpx2.Request("POST", OPENROUTER_API_URL + "/chat/completions")
-        raise openai.APIStatusError(f"Error code: 402 - {body}", response=httpx2.Response(402, request=request, json=body),
+        request = httpx.Request("POST", OPENROUTER_API_URL + "/chat/completions")
+        raise openai.APIStatusError(f"Error code: 402 - {body}", response=httpx.Response(402, request=request, json=body),
                                     body=body)
 
     def factory(system, tools):
@@ -694,12 +694,13 @@ def test_openrouter_out_of_credit_402_escalates_without_a_diagnosis():
 # ---------------------------------------------------------------- model fallback
 
 def _status_error(code, message="upstream error"):
-    import httpx2
+    import httpx
+
     import openai
 
     body = {"error": {"message": message, "code": code}}
-    request = httpx2.Request("POST", OPENROUTER_API_URL + "/chat/completions")
-    return openai.APIStatusError(f"Error code: {code} - {body}", response=httpx2.Response(code, request=request,
+    request = httpx.Request("POST", OPENROUTER_API_URL + "/chat/completions")
+    return openai.APIStatusError(f"Error code: {code} - {body}", response=httpx.Response(code, request=request,
                                                                                           json=body), body=body)
 
 
@@ -733,7 +734,7 @@ def _fallback_session(replies, fallbacks=("b", "c")):
 def test_fallback_models_are_tried_in_order_on_transport_failures_and_stick():
     import openai
 
-    timeout = openai.APITimeoutError(request=__import__("httpx2").Request("POST", OPENROUTER_API_URL))
+    timeout = openai.APITimeoutError(request=__import__("httpx").Request("POST", OPENROUTER_API_URL))
     session, sent = _fallback_session({"a": [_status_error(429, "free-models-per-min")],
                                        "b": [timeout], "c": [_completion("ok"), _completion("again")]})
     assert session.send(user_text="ALERT").model == "c"
