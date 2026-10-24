@@ -30,6 +30,13 @@ _PAGE = Path(__file__).with_name("hub.html")
 _INCIDENT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 MAX_INCIDENTS = 30
+FEED_INCIDENTS = 8
+STAGES = {"ALERT_RECEIVED": "Detected", "TOOL_CALL": "Investigating", "MODEL_NOTE": "Investigating",
+          "DIAGNOSIS": "Diagnosed", "GATE": "Diagnosed", "PLAN": "Planning a fix",
+          "APPROVAL_REQUESTED": "Waiting for your approval", "APPROVAL_DECISION": "Decision recorded",
+          "KILL_SWITCH": "Safety check", "ACTION_EXECUTED": "Fix applied, verifying", "DRY_RUN": "Dry run recorded",
+          "VERIFICATION": "Verified", "ROLLBACK": "Rolled back", "ESCALATION": "Escalated to a human",
+          "REPORT_WRITTEN": "Report written", "ERROR": "Error"}
 HUB_SYSTEM_PROMPT = ("You are a read-only assistant on an incident review page. A human engineer asks you "
                      "questions about a stored incident investigation.\n\n"
                      + CHAT_SYSTEM_PROMPT[CHAT_SYSTEM_PROMPT.index("Rules:"):])
@@ -78,6 +85,40 @@ class Hub:
 
     def ui_event(self, ui: str, summary: str, **data: Any) -> None:
         pass
+
+    def feed(self) -> List[Dict[str, Any]]:
+        """The newest incidents from the audit log with their current stage and recent timeline."""
+        from ...events import format_line
+
+        path = Path(self.settings.audit_log_path)
+        path = path if path.is_absolute() else Path(self.settings.root_dir) / path
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()[-3000:]
+        except OSError:
+            return []
+        incidents: Dict[str, Dict[str, Any]] = {}
+        for line in lines:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            iid = rec.get("incident_id")
+            if not iid or rec.get("event") == "UI_EVENT":
+                continue
+            item = incidents.setdefault(iid, {"incident_id": iid, "alert": "", "timeline": []})
+            item.pop("_order", None)
+            incidents[iid] = incidents.pop(iid)
+            event, summary = rec.get("event", ""), str(rec.get("summary", ""))
+            if event == "ALERT_RECEIVED":
+                item["alert"] = summary.split("alert: ", 1)[-1]
+            item["stage"] = STAGES.get(event, event)
+            if event == "VERIFICATION":
+                item["stage"] = "Resolved: recovery verified" if summary.startswith("RECOVERED") else summary[:60]
+            if event == "REPORT_WRITTEN":
+                item["stage"] = "Done: " + summary.split(":", 1)[0]
+            item["ts"] = rec.get("ts", "")
+            item["timeline"] = (item["timeline"] + [format_line(rec)[:220]])[-12:]
+        return list(reversed(list(incidents.values())))[:FEED_INCIDENTS]
 
     def serve_forever(self) -> None:
         self.httpd.serve_forever(poll_interval=0.2)
@@ -177,6 +218,9 @@ class _HubHandler(_Handler):
         parts = urlsplit(self.path)
         if parts.path == "/status":
             return self._json(200, {"approval_url": active_approval(self.hub.settings)})
+        if parts.path == "/feed":
+            return self._json(200, {"incidents": self.hub.feed(),
+                                    "approval_url": active_approval(self.hub.settings)})
         if parts.path != "/":
             return self._json(404, {"error": "not found"})
         approval = active_approval(self.hub.settings)

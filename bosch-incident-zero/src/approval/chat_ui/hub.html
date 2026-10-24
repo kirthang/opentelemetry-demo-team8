@@ -35,6 +35,11 @@
   .msg.you { background: var(--bg); } .msg.bot { border: 1px solid var(--line); }
   #chat-form { display: flex; gap: 8px; } #question { flex: 1; min-width: 0; }
   .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+  .card .stage { font-weight: 600; } .card .stage.done { color: var(--ok); } .card .stage.wait { color: var(--warn); }
+  .card .stage.bad { color: var(--bad); }
+  .card pre { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted);
+              font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
   .none { display: none; } body.empty .incident { display: none; } body.empty .none { display: block; }
 </style>
 </head>
@@ -50,6 +55,11 @@
       <label for="incident">Incident</label>
       <select id="incident">{{options}}</select>
     </div>
+  </section>
+
+  <section>
+    <h2>Live incidents</h2>
+    <div id="feed"><p class="hint">Waiting for the alert watcher&hellip;</p></div>
   </section>
 
   <section class="none"><h1>No stored incidents yet</h1><p class="hint">Run the agent; its transcript shows up here.</p></section>
@@ -105,13 +115,43 @@
     window.location.href = "/?incident=" + encodeURIComponent(ev.target.value);
   });
 
-  const statusTimer = setInterval(async () => {
+  const feedEl = document.getElementById("feed");
+  function stageClass(stage) {
+    if (/Resolved|Done: RECOVERED/.test(stage)) return "stage done";
+    if (/Waiting|Investigating|Diagnosed|Planning|verifying/.test(stage)) return "stage wait";
+    if (/Escalated|Error|NOT_RECOVERED|Rolled back|REJECTED|BLOCKED/.test(stage)) return "stage bad";
+    return "stage";
+  }
+  function renderFeed(incidents) {
+    feedEl.textContent = "";
+    if (!incidents.length) {
+      const p = document.createElement("p"); p.className = "hint"; p.textContent = "No incidents yet.";
+      feedEl.appendChild(p); return;
+    }
+    incidents.forEach((inc, i) => {
+      const card = document.createElement("div"); card.className = "card";
+      const head = document.createElement("div");
+      const st = document.createElement("span"); st.className = stageClass(inc.stage || ""); st.textContent = inc.stage || "";
+      head.appendChild(st);
+      head.appendChild(document.createTextNode("  " + inc.incident_id + "  " + (inc.alert || "")));
+      card.appendChild(head);
+      if (i === 0) {
+        const pre = document.createElement("pre"); pre.textContent = (inc.timeline || []).join("\n"); card.appendChild(pre);
+      }
+      card.addEventListener("click", () => { window.location.href = "/?incident=" + encodeURIComponent(inc.incident_id); });
+      feedEl.appendChild(card);
+    });
+  }
+  async function poll() {
     try {
-      const r = await fetch("/status", { cache: "no-store" });
+      const r = await fetch("/feed", { cache: "no-store" });
       const data = await r.json();
-      if (data.approval_url) { clearInterval(statusTimer); window.location.href = data.approval_url; }
+      if (data.approval_url) { window.location.href = data.approval_url; return; }
+      renderFeed(data.incidents || []);
     } catch (e) { /* hub restarting; keep polling */ }
-  }, 2000);
+  }
+  poll();
+  setInterval(poll, 3000);
 
   const log = document.getElementById("log");
   function addMsg(text, who) {
