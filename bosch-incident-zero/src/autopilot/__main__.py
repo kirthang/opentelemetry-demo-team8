@@ -39,6 +39,13 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = Settings()
+    if not args.dry_run:
+        from ..action_api.server import start as start_action_api
+
+        api = start_action_api(settings.root_dir.parent, settings.root_dir / "audit_logs" / "action_api.jsonl")
+        log(f"Action API at {api.url}" if api else "port 8798 is in use; assuming the Action API runs there")
+        settings.action_api_endpoint = settings.action_api_endpoint or "http://127.0.0.1:8798"
+        settings.action_api_catalog_path = settings.action_api_catalog_path or "/v1/catalog"
     grafana = GrafanaAlerts(grafana_url(settings), log=log)
     engine = Engine(settings, grafana, dry_run=args.dry_run, max_runs_per_day=args.max_runs_per_day, log=log)
     server = AutopilotServer(engine, port=args.port)

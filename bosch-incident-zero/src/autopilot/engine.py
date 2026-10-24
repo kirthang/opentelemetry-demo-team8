@@ -28,9 +28,9 @@ from ..approval.pipeline import (BLOCKED_BY_KILL_SWITCH, EXECUTED_DRY_RUN, EXECU
                                  verification_services)
 from ..config import Settings
 from ..events import EventLog
-from ..remediation.backends import ActionBackend, DryRunBackend
+from ..remediation.backends import ActionBackend, DryRunBackend, HttpActionBackend
 from ..remediation.verifier import NOT_RECOVERED, VerificationResult, verify_recovery
-from .fixers import Candidate, LocalDockerBackend, suggest
+from .fixers import Candidate, suggest
 from .grafana import FiringAlert, GrafanaAlerts
 
 INVESTIGATING = "investigating"
@@ -295,7 +295,7 @@ class Engine:
             return self._backend_factory()
         if self.dry_run:
             return DryRunBackend(audit=audit)
-        return LocalDockerBackend(self.settings, audit=audit)
+        return HttpActionBackend(self.settings, audit=audit)
 
     def _agent(self, events: EventLog) -> Any:
         if self._agent_factory:

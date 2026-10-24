@@ -105,11 +105,15 @@ What it does:
 4. **Waits for a human.** You pick a fix, enter your name and click *Approve & run*, or click *Reject*.
    Nothing runs without that decision. It goes through `ApprovalGate`, and the kill switch (also a button
    in the UI) is checked before the action and before any rollback.
-5. **Fixes.** The local backend runs `docker restart`, calls the Locust `/swarm` API, or calls the
-   flagd-ui write API.
+5. **Fixes.** In live mode the autopilot starts the local Action API (`src/action_api`, port 8798) and
+   sends the approved fix through it with the approval attached. The Action API restarts the container and
+   waits for it to be healthy, sets the load generator's user count, or sets the flag. Every call is
+   appended to `audit_logs/action_api.jsonl`.
 6. **Verifies.** After the settle time (`ACTION_SETTLE_SECONDS`) it compares fresh telemetry with the
-   baseline and waits up to 5 minutes for the Grafana alert to return to Normal. If telemetry shows no
-   recovery, the approved rollback runs. If the alert is still firing, *Investigate again* starts a new
+   baseline and waits up to 5 minutes for the Grafana alert to return to Normal. If the first check shows
+   no recovery, it checks once more after another settle period, because errors caused by the fix itself
+   (for example requests that failed during a restart) can still be in the first window. If that second
+   check also shows no recovery, the approved rollback runs. If the alert is still firing, *Investigate again* starts a new
    attempt, and the agent is told what was already tried.
 
 Options: `--p95-ms`, `--error-rate`, `--for`, `--poll`, `--max-runs-per-day`, `--port`, `--no-webhook`,
