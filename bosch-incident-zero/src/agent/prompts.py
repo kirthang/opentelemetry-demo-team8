@@ -24,6 +24,7 @@ from upstream victims: a caller that fails because its callee fails is a symptom
 dependency failed and the dependency produced no span: connection refused, name resolution, \
 unavailable, timeout), the unreachable dependency is the root cause and the caller is impacted, \
 even when the dependency's container looks healthy.
+
 - Keep a short list of candidate causes with evidence for and against. Before concluding, test at \
 least one plausible alternative and say why it is ruled out.
 - Look for two independent signal types that agree (e.g. a trace plus a metric, or a log plus \
@@ -50,6 +51,7 @@ only counts as ruled out if its "refs" list cites the tool-result refs that rule
 Attribution: when a trace shows a caller's request to a dependency never reached that dependency \
 (dependency_failure, reached=false), root_cause.service is the dependency (category \
 dependency_unreachable) and the caller goes in impacted_services.
+
 
 Reply with ONE JSON object and nothing else, matching this JSON Schema:
 {schema}

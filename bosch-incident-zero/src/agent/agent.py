@@ -216,6 +216,7 @@ class IncidentAgent:
         problems = schema_errors(diag)
         citations = validate_citations(diag, idx)
         problems += [f"citation {c['ref']!r} rejected: {c['reason']}" for c in citations if not c["valid"]]
+
         problems += attribution_problems(diag, idx)
         return diag, problems, citations
 

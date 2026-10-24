@@ -670,6 +670,7 @@ def _dependency_failure(span: Optional[Dict[str, Any]], spans: List[Dict[str, An
             "span_id": span["span_id"]}
 
 
+
 def _window_params(ctx: ToolContext, minutes: int) -> Tuple[datetime, datetime]:
     end = ctx.now()
     return end - timedelta(minutes=minutes), end
@@ -744,6 +745,7 @@ def search_traces(ctx: ToolContext, service: str, errors_only: bool = True,
             evidence.append({"ref": f"span:{r['trace_id']}:{dep['span_id']}", "kind": "trace",
                              "service": dep["caller"], "caller": dep["caller"],
                              "dependency": dep["dependency"], "reached": dep["reached"]})
+
     if not rows:
         what = "error traces" if errors_only else "traces"
         return _result(tool, NO_DATA, f"No {what} for '{service}' in the last {m}m "
@@ -757,6 +759,7 @@ def search_traces(ctx: ToolContext, service: str, errors_only: bool = True,
                             for r in rows if r.get("dependency_failure") and not r["dependency_failure"]["reached"]})
         for caller, dep_svc in unreached:
             summary += f"; {caller}'s calls to {dep_svc} never reached {dep_svc}"
+
     return _result(tool, OK, summary, {"window": f"{m}m", "traces_scanned": len(traces), "traces": rows},
                    evidence)
 
@@ -822,6 +825,7 @@ def get_trace(ctx: ToolContext, trace_id: str) -> Dict[str, Any]:
                f"{deepest['service']}: {deepest['name']}" + (
                    f" (call from {dep['caller']} never reached {dep['dependency']})"
                    if dep and not dep["reached"] else "") if deepest
+
                else f"{len(spans)} spans, no failing spans; slowest self-time "
                     f"{slowest[0]['service']}: {slowest[0]['name']} ({slowest[0]['self_ms']} ms)")
     return _result(tool, OK, summary, data, evidence)

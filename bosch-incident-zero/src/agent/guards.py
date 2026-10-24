@@ -146,6 +146,7 @@ def attribution_problems(diag: Dict[str, Any], idx: EvidenceIndex) -> List[str]:
             f"and its callers under impacted_services, or escalate if you believe otherwise."]
 
 
+
 def _ref_known(ref: str, idx: EvidenceIndex) -> bool:
     r = str(ref).strip()
     low = r.lower()
@@ -207,6 +208,7 @@ def confidence_gate(diag: Dict[str, Any], citations: List[Dict[str, Any]],
     if misattributed:
         final = "low"
         reasons.append("root cause names the caller of an unreachable dependency")
+
     root = (diag.get("root_cause") or {}).get("service", "")
     escalate = (final == "low" or diag.get("verdict") == "escalate" or not root
                 or (diag.get("root_cause") or {}).get("category") == "unknown")

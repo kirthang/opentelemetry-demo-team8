@@ -411,7 +411,7 @@ def test_callee_mapping_covers_grpc_db_and_messaging():
     assert _callee_of({"name": "HGET", "attributes": {"db.system": "redis"}}) == "valkey-cart"
     assert _callee_of({"name": "SELECT", "attributes": {"db.system": "postgresql"}}) == "astronomy-db"
     assert _callee_of({"name": "orders publish", "attributes": {"messaging.system": "kafka"}}) == "kafka"
-    assert _callee_of({"name": "GET", "attributes": {"server.address": "quote:8090"}}) == "quote"
+    assert _callee_of({"name": "GET", "attributes": {"server.address": "quote:8090"}}) == "quote'
     assert _callee_of({"name": "internal work", "attributes": {}}) is None
 
 
