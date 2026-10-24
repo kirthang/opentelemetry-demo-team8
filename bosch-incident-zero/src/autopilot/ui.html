@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="token" content="{{token}}">
+<title>Incident Zero Autopilot</title>
+<style>
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --side: #f3f3f1; --line: #e5e4e0; --text: #1d1d1b; --muted: #6f6e69;
+  --faint: #9b9a94; --accent: #1d1d1b; --accent-text: #ffffff; --ok: #1f7a4d; --ok-bg: #e6f4ec;
+  --bad: #b3261e; --bad-bg: #fbe9e7; --warn: #8a5a00; --warn-bg: #fdf2dc; --run: #2f5bd3; --run-bg: #e8eefc;
+  --code: #f4f3f0; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1e1e1c; --side: #121211; --line: #2e2d2a; --text: #ecebe6; --muted: #a09f98;
+    --faint: #6f6e69; --accent: #ecebe6; --accent-text: #161615; --ok: #5fcf95; --ok-bg: #16301f;
+    --bad: #ff8a80; --bad-bg: #3a1a17; --warn: #f0c060; --warn-bg: #352a12; --run: #8fb0ff; --run-bg: #1b2440;
+    --code: #252522; --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+button { font: inherit; cursor: pointer; }
+.app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+aside { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.brand { padding: 18px 18px 10px; display: flex; align-items: center; gap: 10px; }
+.logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.brand b { font-size: 15px; }
+.brand small { display: block; color: var(--muted); font-size: 12px; margin-top: -2px; }
+.watch { margin: 6px 12px 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 12px; color: var(--muted); }
+.watch .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.watch .row + .row { margin-top: 4px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); margin-right: 6px; vertical-align: middle; }
+.dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.run { background: var(--run); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.section { padding: 10px 18px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.list { overflow-y: auto; padding: 0 8px 12px; flex: 1; }
+.item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: inherit; padding: 9px 10px; border-radius: 8px; }
+.item:hover { background: var(--line); }
+.item.sel { background: var(--panel); box-shadow: var(--shadow); }
+.item .t { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .m { font-size: 11.5px; color: var(--muted); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+.firing { padding: 0 12px 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--bad-bg); color: var(--bad); }
+.chip.q { background: var(--warn-bg); color: var(--warn); }
+.foot { border-top: 1px solid var(--line); padding: 10px 14px; display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.ks { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 5px 10px; font-size: 12px; }
+.ks.on { background: var(--bad); color: #fff; border-color: var(--bad); }
+main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 28px; border-bottom: 1px solid var(--line); background: var(--bg); }
+header h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.badge.live { color: var(--ok); border-color: var(--ok); } .badge.dry { color: var(--warn); border-color: var(--warn); }
+.pill { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--code); color: var(--muted); white-space: nowrap; }
+.pill.resolved { background: var(--ok-bg); color: var(--ok); }
+.pill.investigating, .pill.fixing, .pill.verifying { background: var(--run-bg); color: var(--run); }
+.pill.awaiting_approval { background: var(--warn-bg); color: var(--warn); }
+.pill.rolled_back, .pill.failed, .pill.escalated, .pill.rejected { background: var(--bad-bg); color: var(--bad); }
+.thread { flex: 1; overflow-y: auto; padding: 24px 28px 80px; }
+.inner { max-width: 820px; margin: 0 auto; }
+.empty { color: var(--muted); text-align: center; margin-top: 18vh; }
+.empty h2 { color: var(--text); font-weight: 600; font-size: 20px; margin: 0 0 8px; }
+.empty p { margin: 4px 0; }
+.step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 8px 0; }
+.ic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--code); color: var(--muted); margin-top: 1px; }
+.ic.ok { background: var(--ok-bg); color: var(--ok); } .ic.bad { background: var(--bad-bg); color: var(--bad); }
+.ic.run { background: var(--run-bg); color: var(--run); } .ic.alert { background: var(--bad-bg); color: var(--bad); }
+.st { font-weight: 550; } .sd { color: var(--muted); font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.time { color: var(--faint); font-size: 11.5px; margin-left: 6px; font-weight: 400; }
+details.tools { margin: 4px 0 4px 32px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+details.tools summary { cursor: pointer; padding: 8px 12px; color: var(--muted); font-size: 13px; list-style: none; }
+details.tools summary::-webkit-details-marker { display: none; }
+details.tools summary::before { content: "▸ "; } details.tools[open] summary::before { content: "▾ "; }
+.tool { font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 6px 12px; border-top: 1px solid var(--line); color: var(--muted); }
+.tool b { color: var(--text); font-weight: 600; }
+.card { margin: 10px 0 10px 32px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); padding: 16px 18px; }
+.card h3 { margin: 0 0 8px; font-size: 14px; }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; font-size: 13px; }
+.kv div:nth-child(odd) { color: var(--muted); }
+.ev { margin: 10px 0 0; padding: 0; list-style: none; font-size: 12.5px; }
+.ev li { padding: 5px 0; border-top: 1px solid var(--line); }
+.ev code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; word-break: break-all; }
+.note { padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 13px; margin-bottom: 12px; }
+.sugg { display: grid; grid-template-columns: 20px 1fr; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 8px; cursor: pointer; }
+.sugg.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.sugg input { margin-top: 3px; }
+.sugg .h { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rec { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--ok-bg); color: var(--ok); font-weight: 500; }
+.sugg .why { color: var(--muted); font-size: 13px; margin-top: 3px; }
+.sugg .risk { font-size: 12px; margin-top: 6px; color: var(--muted); }
+.sugg .risk.irr { color: var(--bad); }
+.actions { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.actions input[type=text] { flex: 1; min-width: 140px; border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 8px; padding: 8px 10px; font: inherit; }
+.primary { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 8px 16px; font-weight: 600; }
+.primary:disabled { opacity: .4; cursor: default; }
+.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; }
+.err { color: var(--bad); font-size: 12.5px; margin-top: 8px; min-height: 1em; }
+table.cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+table.cmp th, table.cmp td { text-align: left; padding: 5px 8px; border-top: 1px solid var(--line); }
+table.cmp th { color: var(--muted); font-weight: 500; }
+.banner { margin: 14px 0 6px 32px; padding: 14px 16px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.banner.ok { background: var(--ok-bg); color: var(--ok); } .banner.dry { background: var(--warn-bg); color: var(--warn); } .banner.bad { background: var(--bad-bg); color: var(--bad); }
+.banner span { font-weight: 400; display: block; font-size: 13px; }
+.cd { font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+  aside { max-height: 42vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  header, .thread { padding-left: 16px; padding-right: 16px; }
+  .card, details.tools, .banner { margin-left: 0; }
+  .kv { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><div class="logo">IZ</div><div><b>Incident Zero</b><small>Autopilot</small></div></div>
+    <div class="watch" id="watch"></div>
+    <div class="firing" id="firing"></div>
+    <div class="section">Incidents</div>
+    <div class="list" id="list"></div>
+    <div class="foot"><span id="quota"></span><button class="ks" id="ks" title="Stops every action before it runs">Kill switch</button></div>
+  </aside>
+  <main>
+    <header><h1 id="title">Waiting for alerts</h1><div style="display:flex;gap:8px;align-items:center"><span class="pill" id="status" hidden></span><span class="badge" id="mode"></span></div></header>
+    <div class="thread"><div class="inner" id="thread"></div></div>
+  </main>
+</div>
+<script>
+const TOKEN = document.querySelector('meta[name=token]').content;
+const S = { state: null, sel: null, detail: null, sig: '', choice: {}, approver: '', note: '' };
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LABEL = { investigating: 'Investigating', awaiting_approval: 'Needs approval', fixing: 'Applying fix', verifying: 'Verifying',
+  resolved: 'Resolved', not_resolved: 'Not resolved', rolled_back: 'Rolled back', rejected: 'Rejected', escalated: 'Escalated', failed: 'Failed' };
+const OPEN = ['investigating', 'awaiting_approval', 'fixing', 'verifying'];
+
+function ago(iso) {
+  if (!iso) return '';
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000));
+  return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : new Date(iso).toLocaleTimeString();
+}
+function clock(iso) { return iso ? new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : ''; }
+
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...body, token: TOKEN}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+
+function renderSide() {
+  const st = S.state; if (!st) return;
+  const setup = st.setup || {};
+  const healthy = !st.last_error && setup.rules;
+  $('watch').innerHTML = `
+    <div class="row"><span><span class="dot ${healthy ? 'ok' : 'bad'}"></span>Grafana alerts</span><span>${setup.rules ? '2 rules' : 'not installed'}</span></div>
+    <div class="row"><span>Webhook</span><span>${setup.webhook ? 'on' : 'polling only'}</span></div>
+    <div class="row"><span>Last check</span><span>${esc(ago(st.last_poll) || '—')}</span></div>
+    ${st.last_error ? `<div class="row" style="color:var(--bad)">${esc(st.last_error)}</div>` : ''}
+    ${(setup.errors || []).map(e => `<div class="row" style="color:var(--warn)">${esc(e)}</div>`).join('')}`;
+  $('firing').innerHTML = st.firing.map(f => `<span class="chip">🔔 ${esc(f.summary)}</span>`).join('')
+    + st.queue.map(q => `<span class="chip q">queued: ${esc(q)}</span>`).join('');
+  $('list').innerHTML = st.incidents.length ? st.incidents.map(i => `
+    <button class="item ${i.key === S.sel ? 'sel' : ''}" data-key="${esc(i.key)}">
+      <div class="t">${esc(i.title)}</div>
+      <div class="m"><span class="dot ${i.status === 'resolved' ? 'ok' : OPEN.includes(i.status) ? 'run' : 'bad'}"></span>${esc(LABEL[i.status] || i.status)}${i.attempt > 1 ? ` · attempt ${i.attempt}` : ''} · ${esc(clock(i.created_at))}</div>
+    </button>`).join('') : '<div style="padding:8px 10px;color:var(--muted);font-size:13px">No incidents yet.</div>';
+  $('mode').textContent = st.mode === 'LIVE' ? 'LIVE · fixes are applied' : 'DRY RUN';
+  $('mode').className = 'badge ' + (st.mode === 'LIVE' ? 'live' : 'dry');
+  $('quota').textContent = `${st.runs_today}/${st.max_runs_per_day} runs today`;
+  $('ks').className = 'ks' + (st.kill_switch ? ' on' : '');
+  $('ks').textContent = st.kill_switch ? 'Kill switch ON' : 'Kill switch';
+  if (!S.approver) S.approver = st.operator || '';
+}
+
+function icon(s) {
+  const k = s.kind, bad = s.status === 'failed', run = s.status === 'running';
+  if (k === 'alert') return ['alert', '!'];
+  if (run) return ['run', '◌'];
+  if (bad) return ['bad', '✕'];
+  return [{result: 'ok', verify: 'ok', action: 'ok', approval: 'ok'}[k] || '', {diagnosis: '◎', suggestions: '✦', info: 'i', gate: '◇', note: '…'}[k] || '✓'];
+}
+
+function stepHtml(s) {
+  const [cls, glyph] = icon(s);
+  let extra = '';
+  const d = s.data || {};
+  if (s.status === 'running' && (d.settle_until || d.deadline)) extra = ` <span class="cd" data-until="${d.settle_until || d.deadline}"></span>`;
+  return `<div class="step"><div class="ic ${cls}">${glyph}</div><div><div class="st">${esc(s.title)}${extra}<span class="time">${esc(clock(s.ts))}</span></div>${s.detail ? `<div class="sd">${esc(s.detail)}</div>` : ''}</div></div>`;
+}
+
+function diagnosisCard(inc) {
+  const d = inc.diagnosis; if (!d) return '';
+  const rc = d.root_cause || {}, g = inc.gate || {};
+  const ev = (d.evidence || []).slice(0, 8).map(e => `<li><code>${esc(e.ref)}</code> ${esc(e.supports || '')}</li>`).join('');
+  return `<div class="card"><h3>Root cause</h3><div class="kv">
+    <div>Service</div><div><b>${esc(rc.service || 'unknown')}</b></div>
+    <div>Category</div><div>${esc(rc.category || 'unknown')}</div>
+    <div>Confidence</div><div>${esc(g.final_confidence || d.confidence || '—')}${g.escalate ? ' · escalated' : ''}</div>
+    <div>Impacted</div><div>${esc((d.impacted_services || []).join(', ') || '—')}</div>
+    <div>Summary</div><div>${esc(rc.summary || '')}</div></div>
+    ${ev ? `<ul class="ev">${ev}</ul>` : ''}</div>`;
+}
+
+function suggestionsCard(inc) {
+  if (!inc.candidates.length) return '';
+  const waiting = inc.status === 'awaiting_approval';
+  const step = inc.steps.find(s => s.kind === 'suggestions') || {data: {}};
+  const choice = S.choice[inc.key] || (inc.candidates.find(c => c.recommended) || inc.candidates[0]).id;
+  S.choice[inc.key] = choice;
+  const items = inc.candidates.map(c => `
+    <label class="sugg ${c.id === choice ? 'sel' : ''}" data-cand="${esc(c.id)}">
+      <input type="radio" name="cand" value="${esc(c.id)}" ${c.id === choice ? 'checked' : ''} ${waiting ? '' : 'disabled'}>
+      <div><div class="h">${esc(c.title)}${c.recommended ? '<span class="rec">Recommended</span>' : ''}<span class="pill">${esc(c.action_type)}</span></div>
+      <div class="why">${esc(c.rationale)}</div>
+      <div class="risk ${c.irreversible ? 'irr' : ''}">${esc(c.risk)}${c.rollback ? ` Rollback: ${esc(c.rollback.description)}` : ''}</div></div>
+    </label>`).join('');
+  const controls = waiting ? `
+    ${step.data.confident === false ? '<div class="note" style="margin-top:12px">The agent is not confident in this diagnosis. Check the evidence before approving.</div>' : ''}
+    <div class="actions">
+      <input type="text" id="approver" placeholder="Your name" value="${esc(S.approver)}" maxlength="80">
+      <input type="text" id="note" placeholder="Note (optional)" value="${esc(S.note)}" maxlength="500">
+    </div>
+    <div class="actions">
+      <button class="primary" id="approve">Approve &amp; run${S.state && S.state.mode !== 'LIVE' ? ' (dry run)' : ''}</button>
+      <button class="secondary" id="reject">Reject</button>
+    </div><div class="err" id="err"></div>` : '';
+  return `<div class="card"><h3>Suggested fixes</h3>${items}${controls}</div>`;
+}
+
+function verificationCard(inc) {
+  const s = [...inc.steps].reverse().find(x => x.data && x.data.verification);
+  if (!s) return '';
+  const v = s.data.verification, b = v.before || {}, a = v.after || {};
+  const flat = x => (x && x.service) ? {[x.service]: x} : (x || {});
+  const before = Object.keys(v.services || {}).length ? null : flat(b), after = flat(a);
+  const rows = Object.entries(v.services || {}).length
+    ? Object.entries(v.services).map(([svc, x]) => [svc, x])
+    : Object.keys(before || {}).map(svc => [svc, {before: before[svc], after: after[svc]}]);
+  const fmt = (x, k, u, n) => x && x[k] != null ? (+x[k]).toFixed(n) + u : '—';
+  const body = rows.map(([svc, x]) => {
+    const bb = x.before || x, aa = x.after || {};
+    return `<tr><td>${esc(svc)}</td><td>${fmt(bb, 'error_rate', '', 3)} → ${fmt(aa, 'error_rate', '', 3)}</td><td>${fmt(bb, 'p95_ms', ' ms', 0)} → ${fmt(aa, 'p95_ms', ' ms', 0)}</td><td>${esc(bb.container_state || '—')} → ${esc(aa.container_state || '—')}</td></tr>`;
+  }).join('');
+  return `<div class="card"><h3>Before / after · ${esc(v.status)}</h3><table class="cmp"><tr><th>Service</th><th>Error rate</th><th>p95</th><th>Container</th></tr>${body}</table></div>`;
+}
+
+function resultBanner(inc) {
+  if (OPEN.includes(inc.status)) return '';
+  const last = [...inc.steps].reverse().find(s => s.kind === 'result');
+  const ok = inc.status === 'resolved', dry = inc.outcome === 'EXECUTED_DRY_RUN';
+  const retry = !ok && !(S.state.incidents || []).some(i => OPEN.includes(i.status));
+  return `<div class="banner ${ok ? 'ok' : dry ? 'dry' : 'bad'}"><div>${esc(last ? last.title : LABEL[inc.status])}<span>${esc(last ? last.detail : inc.outcome)}</span></div>
+    ${retry ? '<button class="secondary" id="retry">Investigate again</button>' : ''}</div>`;
+}
+
+function renderThread() {
+  const inc = S.detail;
+  if (!inc) {
+    $('title').textContent = 'Waiting for alerts';
+    $('status').hidden = true;
+    $('thread').innerHTML = `<div class="empty"><h2>Watching Grafana</h2>
+      <p>When an Incident Zero alert fires, the agent investigates automatically.</p>
+      <p>You review its suggested fixes here, approve one, and it applies and verifies the fix.</p></div>`;
+    return;
+  }
+  $('title').textContent = inc.title;
+  $('status').hidden = false;
+  $('status').className = 'pill ' + inc.status;
+  $('status').textContent = LABEL[inc.status] || inc.status;
+  let html = '', tools = [];
+  const flush = () => {
+    if (!tools.length) return;
+    html += `<details class="tools"><summary>Ran ${tools.length} telemetry ${tools.length === 1 ? 'query' : 'queries'}</summary>${tools.map(t => `<div class="tool"><b>${esc(t.title)}</b> ${esc(t.detail)}</div>`).join('')}</details>`;
+    tools = [];
+  };
+  for (const s of inc.steps) {
+    if (s.kind === 'tool' || s.kind === 'note') { tools.push(s); continue; }
+    flush();
+    html += stepHtml(s);
+    if (s.kind === 'diagnosis') html += diagnosisCard(inc);
+    if (s.kind === 'suggestions') html += suggestionsCard(inc);
+    if (s.data && s.data.verification) html += verificationCard(inc);
+  }
+  flush();
+  html += resultBanner(inc);
+  $('thread').innerHTML = html;
+  bindThread(inc);
+  tick();
+}
+
+function bindThread(inc) {
+  document.querySelectorAll('[data-cand]').forEach(el => el.addEventListener('click', () => {
+    if (inc.status !== 'awaiting_approval') return;
+    S.choice[inc.key] = el.dataset.cand;
+    document.querySelectorAll('[data-cand]').forEach(x => x.classList.toggle('sel', x === el));
+  }));
+  const ap = $('approver'), nt = $('note');
+  if (ap) ap.addEventListener('input', () => S.approver = ap.value);
+  if (nt) nt.addEventListener('input', () => S.note = nt.value);
+  const decide = async approve => {
+    try {
+      await post(`/api/incidents/${encodeURIComponent(inc.key)}/decide`, {approve, candidate_id: S.choice[inc.key], approver: S.approver, note: S.note});
+      S.note = ''; S.sig = ''; refresh();
+    } catch (e) { $('err').textContent = e.message; }
+  };
+  if ($('approve')) $('approve').onclick = () => decide(true);
+  if ($('reject')) $('reject').onclick = () => decide(false);
+  if ($('retry')) $('retry').onclick = async () => {
+    try { await post(`/api/incidents/${encodeURIComponent(inc.key)}/retry`, {}); S.sel = null; refresh(); } catch (e) { alert(e.message); }
+  };
+}
+
+function tick() {
+  document.querySelectorAll('[data-until]').forEach(el => {
+    const left = Math.max(0, Math.round(+el.dataset.until - Date.now() / 1000));
+    el.textContent = left ? `· ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '';
+  });
+}
+
+async function refresh() {
+  try {
+    S.state = await (await fetch('/api/state')).json();
+    const keys = S.state.incidents.map(i => i.key);
+    if (!S.sel || !keys.includes(S.sel)) S.sel = keys[0] || null;
+    renderSide();
+    if (S.sel) {
+      const r = await fetch(`/api/incidents/${encodeURIComponent(S.sel)}`);
+      S.detail = r.ok ? await r.json() : null;
+    } else S.detail = null;
+    const sig = S.detail ? `${S.detail.key}|${S.detail.status}|${S.detail.updated_at}|${S.detail.steps.length}|${S.state.mode}` : 'none';
+    const typing = document.activeElement && ['approver', 'note'].includes(document.activeElement.id);
+    if (sig !== S.sig && !typing) { S.sig = sig; renderThread(); }
+  } catch (e) {
+    $('watch').innerHTML = `<div class="row" style="color:var(--bad)"><span class="dot bad"></span>Autopilot not reachable</div>`;
+  }
+}
+
+$('list').addEventListener('click', e => {
+  const b = e.target.closest('[data-key]'); if (!b) return;
+  S.sel = b.dataset.key; S.sig = ''; refresh();
+});
+$('ks').onclick = async () => {
+  const on = !(S.state && S.state.kill_switch);
+  if (on || confirm('Disengage the kill switch? Approved fixes will be able to run again.')) {
+    try { await post('/api/killswitch', {engaged: on}); refresh(); } catch (e) { alert(e.message); }
+  }
+};
+refresh();
+setInterval(refresh, 1500);
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+{
+  "incident_id": "REPLAY-INC-20261023-121354-115804",
+  "timestamp": "2026-10-23T12:14:21+00:00",
+  "status": "ESCALATED",
+  "target_service": "payment",
+  "impacted_services": [
+    "checkout"
+  ],
+  "severity": "HIGH",
+  "root_cause_summary": "Checkout fails to charge cards because requests to payment never reach it due to a name resolution error (produced zero addresses).",
+  "confidence_score": 0.85,
+  "evidence": {
+    "trace_ids": [
+      "4ba5c818ba3d439c3f89abe32c101911"
+    ],
+    "metrics_summary": {
+      "metric:checkout:server:oteldemo.CheckoutService/PlaceOrder:error_rate": 1.0,
+      "metric:checkout:client:oteldemo.PaymentService/Charge:error_rate": 1.0,
+      "container:payment:state": "running",
+      "container:payment:health": "healthy"
+    },
+    "log_excerpts": []
+  },
+  "remediation": {
+    "recommended_action": "Verify DNS and service discovery configurations for the payment service within the cluster or network topology.",
+    "requires_approval": true,
+    "approval_status": "BLOCKED_BY_KILL_SWITCH",
+    "dry_run": true,
+    "executed_at": null,
+    "pipeline_status": "BLOCKED_BY_KILL_SWITCH",
+    "pipeline_reason": "emergency kill switch is engaged",
+    "recovery_verified": false,
+    "attempts": [
+      {
+        "attempt": 1,
+        "diagnosis": {
+          "service": "payment",
+          "category": "dependency_unreachable",
+          "confidence": "high",
+          "escalate": false
+        },
+        "action": {
+          "action_id": "ACT-REPLAY-INC-20261023-121354-115804",
+          "type": "RESTART_SERVICE",
+          "target": "payment",
+          "parameters": {
+            "reason": "dependency_unreachable diagnosed on 'payment' (high confidence): restart 'payment'.",
+            "diagnosed_service": "payment",
+            "category": "dependency_unreachable"
+          },
+          "irreversible": true,
+          "dry_run": true,
+          "rollback": null
+        },
+        "approval": null,
+        "execution": null,
+        "rollback_execution": null,
+        "verification": null,
+        "outcome": "BLOCKED_BY_KILL_SWITCH",
+        "reason": "emergency kill switch is engaged"
+      }
+    ],
+    "max_attempts": 1,
+    "final_status": "BLOCKED_BY_KILL_SWITCH",
+    "final_reason": "emergency kill switch is engaged"
+  },
+  "timeline": [
+    {
+      "ts": "2026-10-24T06:28:04.492+00:00",
+      "incident_id": "REPLAY-INC-20261023-121354-115804",
+      "event": "PLAN",
+      "summary": "RESTART_SERVICE -> payment; rollback: none",
+      "data": {
+        "action": {
+          "action_id": "ACT-REPLAY-INC-20261023-121354-115804",
+          "action_type": "RESTART_SERVICE",
+          "target_service": "payment",
+          "reason": "dependency_unreachable diagnosed on 'payment' (high confidence): restart 'payment'."
+        },
+        "rollback": null,
+        "reason": "dependency_unreachable diagnosed on 'payment' (high confidence): restart 'payment'.",
+        "attempt": 1,
+        "max_attempts": 1
+      }
+    },
+    {
+      "ts": "2026-10-24T06:28:04.492+00:00",
+      "incident_id": "REPLAY-INC-20261023-121354-115804",
+      "event": "KILL_SWITCH",
+      "summary": "plan: ENGAGED, sentinel file '/Users/vishwasreddy/Desktop/bosch/team8-otel-demo/bosch-incident-zero/.kill_switch' exists",
+      "data": {
+        "checkpoint": "plan",
+        "engaged": true,
+        "reason": "sentinel file '/Users/vishwasreddy/Desktop/bosch/team8-otel-demo/bosch-incident-zero/.kill_switch' exists",
+        "action_id": "ACT-REPLAY-INC-20261023-121354-115804",
+        "attempt": 1,
+        "max_attempts": 1
+      }
+    },
+    {
+      "ts": "2026-10-24T06:28:04.492+00:00",
+      "incident_id": "REPLAY-INC-20261023-121354-115804",
+      "event": "ESCALATION",
+      "summary": "BLOCKED_BY_KILL_SWITCH: emergency kill switch is engaged",
+      "data": {
+        "status": "BLOCKED_BY_KILL_SWITCH",
+        "final_status": "BLOCKED_BY_KILL_SWITCH",
+        "reason": "emergency kill switch is engaged",
+        "attempts": 1,
+        "action_id": "ACT-REPLAY-INC-20261023-121354-115804",
+        "attempt": 1,
+        "max_attempts": 1
+      }
+    }
+  ],
+  "action_taken": null,
+  "verification": null,
+  "prevention": {
+    "category": "unknown",
+    "recommendations": [
+      "Root cause not established: keep the incident open and assign a human owner.",
+      "Add the missing telemetry identified during this investigation before closing."
+    ]
+  },
+  "audit_log": "/Users/vishwasreddy/Desktop/bosch/team8-otel-demo/bosch-incident-zero/audit_logs/audit.jsonl"
+}

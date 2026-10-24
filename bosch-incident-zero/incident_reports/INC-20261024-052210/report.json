@@ -1,0 +1,863 @@
+{
+  "incident_id": "INC-20261024-052210",
+  "timestamp": "2026-10-24T05:25:19+00:00",
+  "status": "MITIGATION_UNVERIFIED",
+  "target_service": "email",
+  "impacted_services": [
+    "checkout",
+    "frontend",
+    "frontend-proxy",
+    "load-generator"
+  ],
+  "severity": "HIGH",
+  "root_cause_summary": "Checkout's HTTP client timeout (~1-3s) is too aggressive for email service, causing 'context deadline exceeded' errors when email calls occasionally exceed the deadline or fail to establish connection (reached=false). Email service itself is healthy (0% error, p95 147ms, healthy container).",
+  "root_cause_category": "dependency_unreachable",
+  "confidence_score": 0.6,
+  "evidence": {
+    "trace_ids": [
+      "adc536daff7450407aaca37c5486f84e",
+      "f10582acca8309bdf9de55c777ba5960"
+    ],
+    "metrics_summary": {
+      "metric:checkout:client:POST:error_rate": 0.0155,
+      "metric:checkout:client:POST:p95_ms": 229.6,
+      "metric:email:server:POST /send_order_confirmation:error_rate": 0.0,
+      "metric:email:server:POST /send_order_confirmation:p95_ms": 147.5,
+      "container:email:state": "running",
+      "container:email:restart_count": 0,
+      "container:email:health": "healthy"
+    },
+    "log_excerpts": [
+      "failed to send order confirmation: failed POST to email service: Post \"http://email:6060/send_order_confirmation\": context deadline exceeded",
+      "failed to send order confirmation: failed POST to email service: Post \"http://email:6060/send_order_confirmation\": context deadline exceeded"
+    ]
+  },
+  "remediation": {
+    "recommended_action": "Increase checkout's HTTP client timeout for email calls (e.g., to 5-10s) or make the email call async/fire-and-forget so checkout doesn't fail the user-facing order. Investigate product-catalog CPU/latency separately as a capacity issue.",
+    "requires_approval": true,
+    "approval_status": "APPROVED",
+    "dry_run": true,
+    "executed_at": "2026-10-24T05:25:20+00:00",
+    "pipeline_status": "EXECUTED_DRY_RUN",
+    "pipeline_reason": "dry run recorded; recovery is not claimed",
+    "recovery_verified": false,
+    "action_id": "ACT-INC-20261024-052210"
+  },
+  "timeline": [
+    {
+      "ts": "2026-10-24T05:25:19.366+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "PLAN",
+      "summary": "RESTART_SERVICE -> email; rollback: none",
+      "data": {
+        "action": {
+          "action_id": "ACT-INC-20261024-052210",
+          "action_type": "RESTART_SERVICE",
+          "target_service": "email",
+          "reason": "dependency_unreachable diagnosed on 'email' (medium confidence): restart 'email'."
+        },
+        "rollback": null,
+        "reason": "dependency_unreachable diagnosed on 'email' (medium confidence): restart 'email'."
+      }
+    },
+    {
+      "ts": "2026-10-24T05:25:19.367+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "KILL_SWITCH",
+      "summary": "plan: clear",
+      "data": {
+        "checkpoint": "plan",
+        "engaged": false,
+        "reason": null,
+        "action_id": "ACT-INC-20261024-052210"
+      }
+    },
+    {
+      "ts": "2026-10-24T05:25:20.367+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "APPROVAL_REQUESTED",
+      "summary": "RESTART_SERVICE -> email with rollback NONE (irreversible) via cli, timeout 120s",
+      "data": {
+        "action": {
+          "action_id": "ACT-INC-20261024-052210",
+          "action_type": "RESTART_SERVICE",
+          "target_service": "email",
+          "reason": "dependency_unreachable diagnosed on 'email' (medium confidence): restart 'email'."
+        },
+        "rollback": null,
+        "channel": "cli",
+        "timeout_seconds": 120,
+        "dry_run": true,
+        "baseline_service": "email",
+        "review_verdict": "upheld",
+        "irreversible": true
+      }
+    },
+    {
+      "ts": "2026-10-24T05:25:20.872+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "APPROVAL_DECISION",
+      "summary": "APPROVED by vishwasreddy via cli: approved at the terminal prompt",
+      "data": {
+        "approved": true,
+        "approver": "vishwasreddy",
+        "channel": "cli",
+        "note": "approved at the terminal prompt",
+        "decided_at": "2026-10-24T05:25:20+00:00",
+        "action_id": "ACT-INC-20261024-052210",
+        "rollback_action_id": null,
+        "irreversible_acknowledged": true
+      }
+    },
+    {
+      "ts": "2026-10-24T05:25:20.872+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "KILL_SWITCH",
+      "summary": "post_approval: clear",
+      "data": {
+        "checkpoint": "post_approval",
+        "engaged": false,
+        "reason": null,
+        "action_id": "ACT-INC-20261024-052210"
+      }
+    },
+    {
+      "ts": "2026-10-24T05:25:20.873+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "KILL_SWITCH",
+      "summary": "pre_execute: clear",
+      "data": {
+        "checkpoint": "pre_execute",
+        "engaged": false,
+        "reason": null,
+        "action_id": "ACT-INC-20261024-052210"
+      }
+    },
+    {
+      "ts": "2026-10-24T05:25:20.874+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "DRY_RUN",
+      "summary": "DRY RUN: RESTART_SERVICE on 'email' was recorded, not sent. No Action API call was made.",
+      "data": {
+        "status": "DRY_RUN",
+        "action_id": "ACT-INC-20261024-052210",
+        "action_type": "RESTART_SERVICE",
+        "target_service": "email",
+        "role": "action",
+        "dry_run": true,
+        "backend": "dry_run",
+        "message": "DRY RUN: RESTART_SERVICE on 'email' was recorded, not sent. No Action API call was made.",
+        "request": {
+          "operation": "action",
+          "action_id": "ACT-INC-20261024-052210",
+          "action_type": "RESTART_SERVICE",
+          "target_service": "email",
+          "parameters": {
+            "reason": "dependency_unreachable diagnosed on 'email' (medium confidence): restart 'email'.",
+            "diagnosed_service": "email",
+            "category": "dependency_unreachable"
+          },
+          "format": "internal request; the Action API payload format is not published yet"
+        },
+        "timestamp": "2026-10-24T05:25:20+00:00"
+      }
+    },
+    {
+      "ts": "2026-10-24T05:25:21.400+00:00",
+      "incident_id": "INC-20261024-052210",
+      "event": "VERIFICATION",
+      "summary": "NOT_VERIFIED_DRY_RUN: dry run, nothing changed, recovery not claimed",
+      "data": {
+        "status": "NOT_VERIFIED_DRY_RUN",
+        "recovered": false,
+        "before": {
+          "error_rate": 0.0,
+          "p95_ms": 172.5,
+          "request_rate": 0.046,
+          "container_state": "running"
+        },
+        "after": {
+          "error_rate": 0.0,
+          "p95_ms": 172.5,
+          "request_rate": 0.046,
+          "container_state": "running"
+        },
+        "reasons": [
+          "dry run: nothing changed, recovery not claimed",
+          "after snapshot is informational only (taken without a settle wait)"
+        ]
+      }
+    }
+  ],
+  "action_taken": {
+    "action_id": "ACT-INC-20261024-052210",
+    "type": "RESTART_SERVICE",
+    "target": "email",
+    "reason": "dependency_unreachable diagnosed on 'email' (medium confidence): restart 'email'.",
+    "parameters": {
+      "reason": "dependency_unreachable diagnosed on 'email' (medium confidence): restart 'email'.",
+      "diagnosed_service": "email",
+      "category": "dependency_unreachable"
+    },
+    "dry_run": true,
+    "backend": "dry_run",
+    "approval_status": "APPROVED",
+    "approver": "vishwasreddy",
+    "approved_at": "2026-10-24T05:25:20+00:00",
+    "approval_channel": "cli",
+    "executed_at": "2026-10-24T05:25:20+00:00",
+    "result": "DRY RUN: RESTART_SERVICE on 'email' was recorded, not sent. No Action API call was made.",
+    "rollback": null,
+    "recovery_verified": false
+  },
+  "verification": {
+    "status": "NOT_VERIFIED_DRY_RUN",
+    "recovered": false,
+    "before": {
+      "service": "email",
+      "window_minutes": 5,
+      "captured_at": "2026-10-24T05:25:19+00:00",
+      "error_rate": 0.0,
+      "p95_ms": 172.5,
+      "rps": 0.046,
+      "metric_source": "system_overview",
+      "flags": [],
+      "reference_p95_ms": 95.0,
+      "operations_aggregate": {
+        "rps": 0.046,
+        "error_rate": 0.0,
+        "p95_ms": 172.5,
+        "operations": 1,
+        "note": "derived from the server/consumer operations get_service_metrics returned; p95_ms is the worst operation p95"
+      },
+      "container_state": "running",
+      "container_health": "healthy",
+      "restart_count": 0,
+      "tool_status": {
+        "system_overview": "ok",
+        "get_service_metrics": "ok",
+        "container_health": "ok"
+      },
+      "missing": {},
+      "evidence": [
+        {
+          "ref": "metric:email:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:p95_ms",
+          "kind": "metric",
+          "value": 172.5,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:rps",
+          "kind": "metric",
+          "value": 0.046,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:cpu_pct",
+          "kind": "metric",
+          "value": 3.7,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:memory_mb",
+          "kind": "metric",
+          "value": 61.8,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:internal:send_email:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:internal:send_email:p95_ms",
+          "kind": "metric",
+          "value": 172.5,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:server:POST /send_order_confirmation:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:server:POST /send_order_confirmation:p95_ms",
+          "kind": "metric",
+          "value": 172.5,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:internal:sinatra.render_template:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:internal:sinatra.render_template:p95_ms",
+          "kind": "metric",
+          "value": 2.9,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:cpu_last",
+          "kind": "metric",
+          "value": 3.708,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:cpu_max",
+          "kind": "metric",
+          "value": 3.776,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:memory_last",
+          "kind": "metric",
+          "value": 61.809,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:memory_max",
+          "kind": "metric",
+          "value": 63.742,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "container:email:state",
+          "kind": "container",
+          "value": "running",
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:restart_count",
+          "kind": "container",
+          "value": 0,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:exit_code",
+          "kind": "container",
+          "value": 0,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:oom_killed",
+          "kind": "container",
+          "value": false,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:health",
+          "kind": "container",
+          "value": "healthy",
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:cpu_pct_5m",
+          "kind": "container",
+          "value": 3.7,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:memory_mb",
+          "kind": "container",
+          "value": 61.8,
+          "tool": "container_health"
+        }
+      ]
+    },
+    "after": {
+      "service": "email",
+      "window_minutes": 5,
+      "captured_at": "2026-10-24T05:25:20+00:00",
+      "error_rate": 0.0,
+      "p95_ms": 172.5,
+      "rps": 0.046,
+      "metric_source": "system_overview",
+      "flags": [],
+      "reference_p95_ms": 95.0,
+      "operations_aggregate": {
+        "rps": 0.046,
+        "error_rate": 0.0,
+        "p95_ms": 172.5,
+        "operations": 1,
+        "note": "derived from the server/consumer operations get_service_metrics returned; p95_ms is the worst operation p95"
+      },
+      "container_state": "running",
+      "container_health": "healthy",
+      "restart_count": 0,
+      "tool_status": {
+        "system_overview": "ok",
+        "get_service_metrics": "ok",
+        "container_health": "ok"
+      },
+      "missing": {},
+      "evidence": [
+        {
+          "ref": "metric:email:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:p95_ms",
+          "kind": "metric",
+          "value": 172.5,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:rps",
+          "kind": "metric",
+          "value": 0.046,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:cpu_pct",
+          "kind": "metric",
+          "value": 3.7,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:memory_mb",
+          "kind": "metric",
+          "value": 61.8,
+          "tool": "system_overview"
+        },
+        {
+          "ref": "metric:email:internal:send_email:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:internal:send_email:p95_ms",
+          "kind": "metric",
+          "value": 172.5,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:server:POST /send_order_confirmation:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:server:POST /send_order_confirmation:p95_ms",
+          "kind": "metric",
+          "value": 172.5,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:internal:sinatra.render_template:error_rate",
+          "kind": "metric",
+          "value": 0.0,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:internal:sinatra.render_template:p95_ms",
+          "kind": "metric",
+          "value": 2.9,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:cpu_last",
+          "kind": "metric",
+          "value": 3.708,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:cpu_max",
+          "kind": "metric",
+          "value": 3.776,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:memory_last",
+          "kind": "metric",
+          "value": 61.809,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "metric:email:memory_max",
+          "kind": "metric",
+          "value": 63.742,
+          "tool": "get_service_metrics"
+        },
+        {
+          "ref": "container:email:state",
+          "kind": "container",
+          "value": "running",
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:restart_count",
+          "kind": "container",
+          "value": 0,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:exit_code",
+          "kind": "container",
+          "value": 0,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:oom_killed",
+          "kind": "container",
+          "value": false,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:health",
+          "kind": "container",
+          "value": "healthy",
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:cpu_pct_5m",
+          "kind": "container",
+          "value": 3.7,
+          "tool": "container_health"
+        },
+        {
+          "ref": "container:email:memory_mb",
+          "kind": "container",
+          "value": 61.8,
+          "tool": "container_health"
+        }
+      ]
+    },
+    "reasons": [
+      "dry run: nothing changed, recovery not claimed",
+      "after snapshot is informational only (taken without a settle wait)"
+    ],
+    "evidence": [
+      {
+        "ref": "metric:email:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "system_overview",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:p95_ms",
+        "kind": "metric",
+        "value": 172.5,
+        "tool": "system_overview",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:rps",
+        "kind": "metric",
+        "value": 0.046,
+        "tool": "system_overview",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:cpu_pct",
+        "kind": "metric",
+        "value": 3.7,
+        "tool": "system_overview",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:memory_mb",
+        "kind": "metric",
+        "value": 61.8,
+        "tool": "system_overview",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:internal:send_email:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:internal:send_email:p95_ms",
+        "kind": "metric",
+        "value": 172.5,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:server:POST /send_order_confirmation:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:server:POST /send_order_confirmation:p95_ms",
+        "kind": "metric",
+        "value": 172.5,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:internal:sinatra.render_template:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:internal:sinatra.render_template:p95_ms",
+        "kind": "metric",
+        "value": 2.9,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:cpu_last",
+        "kind": "metric",
+        "value": 3.708,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:cpu_max",
+        "kind": "metric",
+        "value": 3.776,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:memory_last",
+        "kind": "metric",
+        "value": 61.809,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:memory_max",
+        "kind": "metric",
+        "value": 63.742,
+        "tool": "get_service_metrics",
+        "phase": "before"
+      },
+      {
+        "ref": "container:email:state",
+        "kind": "container",
+        "value": "running",
+        "tool": "container_health",
+        "phase": "before"
+      },
+      {
+        "ref": "container:email:restart_count",
+        "kind": "container",
+        "value": 0,
+        "tool": "container_health",
+        "phase": "before"
+      },
+      {
+        "ref": "container:email:exit_code",
+        "kind": "container",
+        "value": 0,
+        "tool": "container_health",
+        "phase": "before"
+      },
+      {
+        "ref": "container:email:oom_killed",
+        "kind": "container",
+        "value": false,
+        "tool": "container_health",
+        "phase": "before"
+      },
+      {
+        "ref": "container:email:health",
+        "kind": "container",
+        "value": "healthy",
+        "tool": "container_health",
+        "phase": "before"
+      },
+      {
+        "ref": "container:email:cpu_pct_5m",
+        "kind": "container",
+        "value": 3.7,
+        "tool": "container_health",
+        "phase": "before"
+      },
+      {
+        "ref": "container:email:memory_mb",
+        "kind": "container",
+        "value": 61.8,
+        "tool": "container_health",
+        "phase": "before"
+      },
+      {
+        "ref": "metric:email:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "system_overview",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:p95_ms",
+        "kind": "metric",
+        "value": 172.5,
+        "tool": "system_overview",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:rps",
+        "kind": "metric",
+        "value": 0.046,
+        "tool": "system_overview",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:cpu_pct",
+        "kind": "metric",
+        "value": 3.7,
+        "tool": "system_overview",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:memory_mb",
+        "kind": "metric",
+        "value": 61.8,
+        "tool": "system_overview",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:internal:send_email:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:internal:send_email:p95_ms",
+        "kind": "metric",
+        "value": 172.5,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:server:POST /send_order_confirmation:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:server:POST /send_order_confirmation:p95_ms",
+        "kind": "metric",
+        "value": 172.5,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:internal:sinatra.render_template:error_rate",
+        "kind": "metric",
+        "value": 0.0,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:internal:sinatra.render_template:p95_ms",
+        "kind": "metric",
+        "value": 2.9,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:cpu_last",
+        "kind": "metric",
+        "value": 3.708,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:cpu_max",
+        "kind": "metric",
+        "value": 3.776,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:memory_last",
+        "kind": "metric",
+        "value": 61.809,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "metric:email:memory_max",
+        "kind": "metric",
+        "value": 63.742,
+        "tool": "get_service_metrics",
+        "phase": "after"
+      },
+      {
+        "ref": "container:email:state",
+        "kind": "container",
+        "value": "running",
+        "tool": "container_health",
+        "phase": "after"
+      },
+      {
+        "ref": "container:email:restart_count",
+        "kind": "container",
+        "value": 0,
+        "tool": "container_health",
+        "phase": "after"
+      },
+      {
+        "ref": "container:email:exit_code",
+        "kind": "container",
+        "value": 0,
+        "tool": "container_health",
+        "phase": "after"
+      },
+      {
+        "ref": "container:email:oom_killed",
+        "kind": "container",
+        "value": false,
+        "tool": "container_health",
+        "phase": "after"
+      },
+      {
+        "ref": "container:email:health",
+        "kind": "container",
+        "value": "healthy",
+        "tool": "container_health",
+        "phase": "after"
+      },
+      {
+        "ref": "container:email:cpu_pct_5m",
+        "kind": "container",
+        "value": 3.7,
+        "tool": "container_health",
+        "phase": "after"
+      },
+      {
+        "ref": "container:email:memory_mb",
+        "kind": "container",
+        "value": 61.8,
+        "tool": "container_health",
+        "phase": "after"
+      }
+    ],
+    "checked_at": "2026-10-24T05:25:21+00:00"
+  },
+  "prevention": {
+    "category": "dependency_unreachable",
+    "recommendations": [
+      "Add health checks and an availability alert for email.",
+      "Make callers of email fail fast with timeouts, retries with backoff and a circuit breaker.",
+      "Document a runbook for restoring email."
+    ]
+  },
+  "audit_log": "/Users/vishwasreddy/Desktop/bosch/team8-otel-demo/bosch-incident-zero/audit_logs/audit.jsonl"
+}
