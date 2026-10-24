@@ -177,7 +177,7 @@
       }
     },
     "productCatalogFailure": {
-      "defaultVariant": "off",
+      "defaultVariant": "on",
       "description": "Fail product catalog service on a specific product",
       "state": "ENABLED",
       "targeting": {
