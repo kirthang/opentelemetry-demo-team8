@@ -79,6 +79,42 @@ are also appended to `audit_logs/audit.jsonl`.
 
 Exit codes: `0` on a finished run, `2` when the LLM is not configured.
 
+## Autopilot (alert-driven, with approval)
+
+With the demo running, start the autopilot instead of passing `--alert` by hand:
+
+```bash
+.venv/bin/python -m src.autopilot              # approved fixes are applied to the local Docker demo
+.venv/bin/python -m src.autopilot --dry-run    # approved fixes are recorded, nothing changes
+```
+
+What it does:
+
+1. **Detects.** On start it installs two Grafana alert rules in a folder called *Incident Zero*:
+   inbound error rate above 5% and p95 latency above 5000 ms, per service, firing after 1 minute. It also
+   adds a webhook contact point and a notification route for alerts labelled `incident_zero="true"`. Grafana
+   pushes firing alerts to the autopilot, which also polls Grafana every 20 s as a fallback. The demo's own
+   rules (such as the always-firing `CartAddItemHighLatency`) are ignored.
+2. **Investigates.** Each firing alert starts one agent run. Runs happen one at a time, and the default
+   cap is 4 a day because of the free LLM quota. The UI at http://localhost:8790 streams the tool calls,
+   the diagnosis and the evidence.
+3. **Suggests.** It lists allowlisted fixes, with the planner's choice marked *Recommended*. Each fix
+   shows its risk and rollback. Possible fixes are restarting the diagnosed or alerting service,
+   throttling the load generator, and disabling a feature flag named in the evidence (only with
+   `AUTOPILOT_FLAG_ACTIONS=true`).
+4. **Waits for a human.** You pick a fix, enter your name and click *Approve & run*, or click *Reject*.
+   Nothing runs without that decision. It goes through `ApprovalGate`, and the kill switch (also a button
+   in the UI) is checked before the action and before any rollback.
+5. **Fixes.** The local backend runs `docker restart`, calls the Locust `/swarm` API, or calls the
+   flagd-ui write API.
+6. **Verifies.** After the settle time (`ACTION_SETTLE_SECONDS`) it compares fresh telemetry with the
+   baseline and waits up to 5 minutes for the Grafana alert to return to Normal. If telemetry shows no
+   recovery, the approved rollback runs. If the alert is still firing, *Investigate again* starts a new
+   attempt, and the agent is told what was already tried.
+
+Options: `--p95-ms`, `--error-rate`, `--for`, `--poll`, `--max-runs-per-day`, `--port`, `--no-webhook`,
+`--no-browser`. Reports are written to `incident_output/<id>/` as usual.
+
 ## How to watch a run
 
 Run this in a second terminal while the agent works:
