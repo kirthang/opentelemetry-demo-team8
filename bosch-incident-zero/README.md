@@ -122,6 +122,28 @@ whatever is missing. A Grafana restart re-applies the demo's provisioned notific
 Options: `--p95-ms`, `--error-rate`, `--for`, `--poll`, `--resync`, `--max-runs-per-day`, `--port`,
 `--no-webhook`, `--no-browser`. Reports are written to `incident_output/<id>/` as usual.
 
+### Break the demo on cue
+
+With the demo and the autopilot running and its page on screen, one command kills the `payment` container
+and narrates the autopilot's response in the terminal:
+
+```bash
+.venv/bin/python scripts/inject_fault.py            # check, press Enter, kill payment, follow to the end
+.venv/bin/python scripts/inject_fault.py --check    # readiness only, injects nothing
+.venv/bin/python scripts/inject_fault.py --restore  # start payment again by hand
+```
+
+- The fault is a crash: `docker stop -t 0 payment` (exit code 137), which Docker's restart policy does not undo.
+  Checkouts then fail, Grafana's error-rate alert fires, and the autopilot opens an incident.
+- The terminal prints the telemetry, the Grafana alert state and every step of the incident as it happens, then
+  stops at **YOUR TURN**. Approval is only ever given in the autopilot page; the script never approves.
+- Before injecting it checks that payment is up, there is checkout traffic, the autopilot is live with its rules
+  installed, nothing is firing or open, the daily cap is not used up and a model is configured. `--force` skips a
+  failed check, `--no-follow` injects and exits, `--timeout` sets the minutes to follow (default 30).
+- Even a few seconds of outage keeps the 3-minute error rate above the threshold long enough to fire the alert
+  and start an investigation, so do not use `inject_fault.py` to test anything you do not want investigated.
+- If the incident is rejected, escalated or times out, payment stays down: run `--restore`.
+
 ## How to watch a run
 
 Run this in a second terminal while the agent works:
@@ -296,7 +318,7 @@ bosch-incident-zero/
 │   ├── models/         # data models
 │   └── config.py       # settings from the environment and .env
 ├── config/             # incident_schema.json, default_config.yaml
-├── scripts/            # verify_environment.py, run_demo.py, watch_run.py
+├── scripts/            # verify_environment.py, run_demo.py, watch_run.py, inject_fault.py
 ├── docs/
 └── tests/
 ```
