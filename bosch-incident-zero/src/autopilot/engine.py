@@ -43,9 +43,11 @@ ROLLED_BACK = "rolled_back"
 REJECTED_STATE = "rejected"
 ESCALATED = "escalated"
 FAILED = "failed"
+CLEARED = "cleared"
 OPEN_STATES = (INVESTIGATING, AWAITING_APPROVAL, FIXING, VERIFYING)
 
 ALERT_STILL_FIRING = "NOT_RESOLVED_ALERT_FIRING"
+CLEARED_BEFORE_FIX = "CLEARED_BEFORE_FIX"
 ALERT_CLEAR_TIMEOUT_SECONDS = 300
 ALERT_CLEAR_POLL_SECONDS = 15
 STREAMED_EVENTS = {"TOOL_CALL", "MODEL_NOTE", "DIAGNOSIS", "GATE", "ERROR"}
@@ -93,6 +95,8 @@ class Incident:
     def update(self, s: Dict[str, Any], **changes: Any) -> None:
         data = changes.pop("data", None)
         changes.setdefault("status", "done")
+        if changes["status"] != "running":
+            changes["ts"] = now_iso()
         s.update(changes)
         if data:
             s["data"].update(data)
@@ -364,8 +368,15 @@ class Engine:
         i.status = AWAITING_APPROVAL
         wait = i.step("approval", "Waiting for your approval", "", "running",
                       deadline=time.time() + self.decision_timeout)
-        if not i.decided.wait(self.decision_timeout):
-            i.decision = Decision(False, None, "nobody", "no decision before the timeout")
+        deadline, noted = time.time() + self.decision_timeout, False
+        while not i.decided.wait(ALERT_CLEAR_POLL_SECONDS):
+            if not noted and self._alert_firing(i) is False:
+                noted = True
+                i.step("info", "Alert went back to Normal while waiting",
+                       "The problem may have cleared on its own. A fix approved now will not be credited with it.")
+            if time.time() >= deadline:
+                i.decision = Decision(False, None, "nobody", "no decision before the timeout")
+                break
         d = i.decision
         chosen = next((c for c in i.candidates if c.action.action_id == d.candidate_id), None)
         human = HumanDecision(approved=d.approved and chosen is not None, approver=d.approver, channel="chat_ui",
@@ -417,6 +428,10 @@ class Engine:
         baseline = _capture(self.ctx, services)
         i.update(base_step, title="Baseline recorded", data={"baseline": _brief(baseline)})
 
+        firing_before = self._alert_firing(i)
+        if firing_before is False:
+            i.step("info", "Alert already back to Normal", "The Grafana alert cleared before the fix ran, so the fix "
+                   "will not be credited with clearing it.")
         if not self._kill_switch(i, events, "pre_execute", action.action_id):
             return done(BLOCKED_BY_KILL_SWITCH, "kill switch engaged", ESCALATED, baseline=baseline)
         be = self._backend(audit=lambda e: events.emit("ACTION_REFUSED", str(e.get("reason")), e))
@@ -468,14 +483,19 @@ class Engine:
             return done(NOT_RECOVERED_ROLLED_BACK, "no recovery measured; rolled back", ROLLED_BACK,
                         rollback_result=rb_result, **kw)
 
+        if firing_before is False:
+            i.step("result", "Cleared on its own", f"The alert on {i.alert.service} went back to Normal before the "
+                   f"fix ran (telemetry after the fix: {v.status}). The fix ran but is not credited with the recovery.")
+            return done(CLEARED_BEFORE_FIX, f"alert cleared before the fix; telemetry {v.status}", CLEARED, **kw)
         cleared = self._wait_alert_clear(i)
         if v.status == RECOVERED and cleared:
             action.recovery_verified = True
             i.step("result", "Resolved", f"Telemetry recovered and the Grafana alert on {i.alert.service} cleared.")
             return done(RECOVERED, "telemetry recovered and the alert cleared", RESOLVED, **kw)
         if cleared:
-            i.step("result", "Alert cleared", f"The Grafana alert cleared, but the telemetry check was "
-                   f"{v.status}. Treating as resolved; keep an eye on it.")
+            i.step("result", "Alert cleared after the fix", f"The Grafana alert was firing when the fix ran and has "
+                   f"cleared since, but the telemetry check was {v.status}, so recovery is not confirmed by metrics. "
+                   f"Keep an eye on it.")
             return done(RECOVERED, f"alert cleared; telemetry {v.status}", RESOLVED, **kw)
         i.step("result", "Not resolved", f"The Grafana alert is still firing (telemetry: {v.status}). "
                f"Investigate again or take over manually.", status="failed")
@@ -497,6 +517,14 @@ class Engine:
                                         "services": {s: {k: x.get(k) for k in ("status", "before", "after")}
                                                      for s, x in (v.services or {}).items()}}})
         return v
+
+    def _alert_firing(self, i: Incident) -> Optional[bool]:
+        """Whether the incident's alert, or one attached to it, is firing now; None when Grafana can't say."""
+        try:
+            firing = {f.service for f in self.grafana.firing()}
+        except Exception:
+            return None
+        return bool(firing & {i.alert.service, *i.related})
 
     def _wait_alert_clear(self, i: Incident) -> bool:
         s = i.step("verify", f"Watching Grafana alert {i.alert.alertname}", "Waiting for it to return to Normal",
